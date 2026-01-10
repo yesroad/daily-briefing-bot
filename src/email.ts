@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import type { DailySummary } from "./summary.js";
+import type { DailySummary } from "./llm/schema.js";
 
 type MailResult = {
   messageId: string;
@@ -25,13 +25,6 @@ function formatKstDate(date: Date): string {
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
-function resolveDateLabel(summaryDate?: string): string {
-  if (summaryDate && /^\d{4}-\d{2}-\d{2}$/.test(summaryDate)) {
-    return summaryDate;
-  }
-  return formatKstDate(new Date());
-}
-
 function normalizeSection(items: string[] | string | undefined): string[] {
   if (!items) {
     return [];
@@ -54,17 +47,17 @@ function formatSection(title: string, items: string[] | string | undefined): str
 }
 
 export function formatSummaryEmail(summary: DailySummary): { subject: string; text: string } {
-  const dateLabel = resolveDateLabel(summary.date);
+  const dateLabel = formatKstDate(new Date());
   const subject = `[데일리 브리핑] ${dateLabel} 시장 요약`;
 
   const sections = [
-    `오늘 한 줄 요약\n- ${summary.oneLineSummary}\n`,
+    `오늘 한 줄 요약\n- ${summary.one_liner}\n`,
     formatSection("[경제]", summary.economy),
-    formatSection("[증시]", summary.stockMarket),
-    formatSection("[부동산]", summary.realEstate),
-    formatSection("[글로벌]", summary.global),
-    formatSection("[섹터]", summary.sector),
-    formatSection("[내일 체크 포인트]", summary.tomorrow),
+    formatSection("[증시]", summary.stock_market),
+    formatSection("[부동산]", summary.real_estate_kr),
+    formatSection("[글로벌]", summary.social_global),
+    formatSection("[섹터]", summary.sector_focus),
+    formatSection("[내일 체크 포인트]", summary.tomorrow_watchlist),
   ];
 
   return {
