@@ -1,4 +1,5 @@
 import Parser from "rss-parser";
+import { isMarketRelevant } from "./filter.js";
 import { RSS_SOURCES } from "./sources.js";
 
 export type Article = {
@@ -132,7 +133,9 @@ export async function fetchRssArticles(): Promise<Article[]> {
       .filter((item) => item.title.length > 0)
   );
 
-  return dedupeArticles(articles);
+  const filtered = articles.filter((article) => isMarketRelevant(article));
+
+  return dedupeArticles(filtered);
 }
 
 export function selectRepresentativeArticles(
