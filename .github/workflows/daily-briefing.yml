@@ -5,7 +5,6 @@ on:
     - cron: "0 13 * * *" # 매일 22:00 KST
   workflow_dispatch:
 
-# 중복 실행 방지 (메일 두 번 가는 것 방지)
 concurrency:
   group: daily-briefing-bot
   cancel-in-progress: true
@@ -35,7 +34,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: yarn
 
       - name: Enable Corepack (Yarn 4)
         run: corepack enable
