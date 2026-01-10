@@ -18,7 +18,7 @@ try {
   const summary = await summarizeArticles(selected);
 
   console.log("Sending email...");
-  const result = await sendSummaryEmail(summary);
+  const result = await sendSummaryEmail(summary, selected);
 
   console.log(`Email sent successfully: ${result.messageId}`);
 } catch (error) {

@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
+import { renderBriefingHtml, renderBriefingText } from "./emailTemplate.js";
 import type { DailySummary } from "./llm/schema.js";
+import type { Article } from "./rss/index.js";
 
 type MailResult = {
   messageId: string;
@@ -25,48 +27,10 @@ function formatKstDate(date: Date): string {
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
-function normalizeSection(items: string[] | string | undefined): string[] {
-  if (!items) {
-    return [];
-  }
-  if (Array.isArray(items)) {
-    return items.map((item) => item.trim()).filter(Boolean);
-  }
-  return items
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function formatSection(title: string, items: string[] | string | undefined): string {
-  const lines = normalizeSection(items);
-  if (lines.length === 0) {
-    return `${title}\n- (내용 없음)\n`;
-  }
-  return `${title}\n${lines.map((line) => `- ${line}`).join("\n")}\n`;
-}
-
-export function formatSummaryEmail(summary: DailySummary): { subject: string; text: string } {
-  const dateLabel = formatKstDate(new Date());
-  const subject = `[데일리 브리핑] ${dateLabel} 시장 요약`;
-
-  const sections = [
-    `오늘 한 줄 요약\n- ${summary.one_liner}\n`,
-    formatSection("[경제]", summary.economy),
-    formatSection("[증시]", summary.stock_market),
-    formatSection("[부동산]", summary.real_estate_kr),
-    formatSection("[글로벌]", summary.social_global),
-    formatSection("[섹터]", summary.sector_focus),
-    formatSection("[내일 체크 포인트]", summary.tomorrow_watchlist),
-  ];
-
-  return {
-    subject,
-    text: sections.join("\n").trimEnd(),
-  };
-}
-
-export async function sendSummaryEmail(summary: DailySummary): Promise<MailResult> {
+export async function sendSummaryEmail(
+  summary: DailySummary,
+  articles: Article[]
+): Promise<MailResult> {
   const host = getRequiredEnv("SMTP_HOST");
   const port = Number(getRequiredEnv("SMTP_PORT"));
   const user = getRequiredEnv("SMTP_USER");
@@ -88,7 +52,10 @@ export async function sendSummaryEmail(summary: DailySummary): Promise<MailResul
     },
   });
 
-  const { subject, text } = formatSummaryEmail(summary);
+  const dateLabel = formatKstDate(new Date());
+  const subject = `[데일리 브리핑] ${dateLabel} 시장 요약`;
+  const text = renderBriefingText(summary, subject);
+  const html = renderBriefingHtml(summary, subject);
 
   try {
     const info = await transporter.sendMail({
@@ -96,6 +63,7 @@ export async function sendSummaryEmail(summary: DailySummary): Promise<MailResul
       to,
       subject,
       text,
+      html,
     });
     return { messageId: info.messageId ?? "" };
   } catch (error) {
