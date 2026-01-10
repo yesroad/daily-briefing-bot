@@ -1,4 +1,5 @@
-import type { DailySummary } from "./llm/schema.js";
+import type { DailySummary, SummaryItem } from "./llm/schema.js";
+import type { Article } from "./rss/index.js";
 
 type SectionConfig = {
   key: keyof DailySummary;
@@ -14,17 +15,13 @@ const SECTION_CONFIGS: SectionConfig[] = [
   { key: "tomorrow_watchlist", title: "내일 체크 포인트" },
 ];
 
-function normalizeSection(items: string[] | string | undefined): string[] {
+function normalizeSection(items: SummaryItem[] | undefined): SummaryItem[] {
   if (!items) {
     return [];
   }
-  if (Array.isArray(items)) {
-    return items.map((item) => item.trim()).filter(Boolean);
-  }
   return items
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .map((item) => ({ ...item, text: item.text.trim() }))
+    .filter((item) => item.text.length > 0);
 }
 
 function escapeHtml(value: string): string {
@@ -48,8 +45,8 @@ function formatKstDate(date: Date): string {
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
-function buildHighlights(briefing: DailySummary): string[] {
-  const highlights: string[] = [];
+function buildHighlights(briefing: DailySummary): SummaryItem[] {
+  const highlights: SummaryItem[] = [];
   const economy = normalizeSection(briefing.economy);
   const stocks = normalizeSection(briefing.stock_market);
   const realEstate = normalizeSection(briefing.real_estate_kr);
@@ -72,12 +69,31 @@ function buildHighlights(briefing: DailySummary): string[] {
   return highlights;
 }
 
-function renderSectionCard(title: string, items: string[]): string {
+function buildLinkedText(item: SummaryItem, articles: Article[]): string {
+  const article = articles[item.sourceIndex - 1];
+  const link = article?.link;
+  const text = escapeHtml(item.text);
+
+  if (!link) {
+    return `<span style="color:#0f172a;">${text}</span>`;
+  }
+
+  return `<a href="${escapeHtml(
+    link
+  )}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none;">${text}</a>`;
+}
+
+function renderSectionCard(
+  title: string,
+  items: SummaryItem[],
+  articles: Article[]
+): string {
   const listItems = items
     .map(
       (item) =>
-        `<li style="margin:0 0 8px 0; padding:0; color:#1f2937; font-size:15px; line-height:1.55;">${escapeHtml(
-          item
+        `<li style="margin:0 0 8px 0; padding:0; color:#0f172a; font-size:15px; line-height:1.55;">${buildLinkedText(
+          item,
+          articles
         )}</li>`
     )
     .join("");
@@ -106,38 +122,32 @@ function renderSectionCard(title: string, items: string[]): string {
 
 export function renderBriefingHtml(
   briefing: DailySummary,
-  subject: string
+  subject: string,
+  articles: Article[]
 ): string {
   const dateLabel = formatKstDate(new Date());
   const highlights = buildHighlights(briefing);
   const sectionCards = SECTION_CONFIGS.map((section) => {
     const items = normalizeSection(briefing[section.key]);
+    if (section.key === "tomorrow_watchlist") {
+      const safeItems =
+        items.length > 0
+          ? items
+          : [{ text: "내일 체크 포인트 없음", sourceIndex: 0 }];
+      return renderSectionCard(section.title, safeItems, articles);
+    }
+    if (section.key === "social_global") {
+      const safeItems =
+        items.length > 0
+          ? items
+          : [{ text: "오늘 영향 큰 이슈 없음", sourceIndex: 0 }];
+      return renderSectionCard(section.title, safeItems, articles);
+    }
     if (items.length === 0) {
       return "";
     }
-    return renderSectionCard(section.title, items);
+    return renderSectionCard(section.title, items, articles);
   }).join("");
-
-  const globalItems = normalizeSection(briefing.social_global);
-  const tomorrowItems = normalizeSection(briefing.tomorrow_watchlist);
-  const showNoImpactNote =
-    globalItems.length === 0 && tomorrowItems.length === 0;
-
-  const noImpactCard = showNoImpactNote
-    ? `
-    <tr>
-      <td style="padding:0 0 16px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed; border:1px solid #fed7aa; border-radius:12px;">
-          <tr>
-            <td style="padding:12px 16px; font-family:Arial, Helvetica, sans-serif; color:#9a3412; font-size:14px; line-height:1.5; font-weight:600;">
-              오늘 영향 큰 이슈 없음
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  `
-    : "";
 
   const highlightBlock =
     highlights.length > 0
@@ -157,7 +167,7 @@ export function renderBriefingHtml(
                                     .map(
                                       (item) =>
                                         `<li style="margin:0 0 6px 0; color:#334155; font-size:14px; line-height:1.5;">${escapeHtml(
-                                          item
+                                          item.text
                                         )}</li>`
                                     )
                                     .join("")}
@@ -212,7 +222,6 @@ export function renderBriefingHtml(
               </td>
             </tr>
             ${sectionCards}
-            ${noImpactCard}
             <tr>
               <td style="padding:4px 0 0 0; font-family:Arial, Helvetica, sans-serif; color:#6b7280; font-size:12px; line-height:1.5; text-align:center;">
                 이 메일은 자동 발송된 데일리 브리핑입니다.
@@ -242,29 +251,46 @@ export function renderBriefingText(
   if (highlights.length > 0) {
     lines.push("오늘 핵심 3개");
     highlights.forEach((item) => {
-      lines.push(`- ${item}`);
+      lines.push(`- ${item.text}`);
     });
     lines.push("");
   }
 
   SECTION_CONFIGS.forEach((section) => {
     const items = normalizeSection(briefing[section.key]);
+    if (section.key === "tomorrow_watchlist") {
+      lines.push(section.title);
+      if (items.length === 0) {
+        lines.push("- 내일 체크 포인트 없음");
+      } else {
+        items.forEach((item) => {
+          lines.push(`- ${item.text}`);
+        });
+      }
+      lines.push("");
+      return;
+    }
+    if (section.key === "social_global") {
+      lines.push(section.title);
+      if (items.length === 0) {
+        lines.push("- 오늘 영향 큰 이슈 없음");
+      } else {
+        items.forEach((item) => {
+          lines.push(`- ${item.text}`);
+        });
+      }
+      lines.push("");
+      return;
+    }
     if (items.length === 0) {
       return;
     }
     lines.push(section.title);
     items.forEach((item) => {
-      lines.push(`- ${item}`);
+      lines.push(`- ${item.text}`);
     });
     lines.push("");
   });
-
-  const globalItems = normalizeSection(briefing.social_global);
-  const tomorrowItems = normalizeSection(briefing.tomorrow_watchlist);
-  if (globalItems.length === 0 && tomorrowItems.length === 0) {
-    lines.push("오늘 영향 큰 이슈 없음");
-    lines.push("");
-  }
 
   return lines.join("\n").trimEnd();
 }
