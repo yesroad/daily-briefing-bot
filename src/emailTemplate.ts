@@ -75,12 +75,12 @@ function buildLinkedText(item: SummaryItem, articles: Article[]): string {
   const text = escapeHtml(item.text);
 
   if (!link) {
-    return text;
+    return `<span style="color:#0f172a;">${text}</span>`;
   }
 
   return `<a href="${escapeHtml(
     link
-  )}" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:none;">${text}</a>`;
+  )}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none;">${text}</a>`;
 }
 
 function renderSectionCard(
@@ -91,7 +91,7 @@ function renderSectionCard(
   const listItems = items
     .map(
       (item) =>
-        `<li style="margin:0 0 8px 0; padding:0; color:#1f2937; font-size:15px; line-height:1.55;">${buildLinkedText(
+        `<li style="margin:0 0 8px 0; padding:0; color:#0f172a; font-size:15px; line-height:1.55;">${buildLinkedText(
           item,
           articles
         )}</li>`
@@ -129,32 +129,25 @@ export function renderBriefingHtml(
   const highlights = buildHighlights(briefing);
   const sectionCards = SECTION_CONFIGS.map((section) => {
     const items = normalizeSection(briefing[section.key]);
+    if (section.key === "tomorrow_watchlist") {
+      const safeItems =
+        items.length > 0
+          ? items
+          : [{ text: "내일 체크 포인트 없음", sourceIndex: 0 }];
+      return renderSectionCard(section.title, safeItems, articles);
+    }
+    if (section.key === "social_global") {
+      const safeItems =
+        items.length > 0
+          ? items
+          : [{ text: "오늘 영향 큰 이슈 없음", sourceIndex: 0 }];
+      return renderSectionCard(section.title, safeItems, articles);
+    }
     if (items.length === 0) {
       return "";
     }
     return renderSectionCard(section.title, items, articles);
   }).join("");
-
-  const globalItems = normalizeSection(briefing.social_global);
-  const tomorrowItems = normalizeSection(briefing.tomorrow_watchlist);
-  const showNoImpactNote =
-    globalItems.length === 0 && tomorrowItems.length === 0;
-
-  const noImpactCard = showNoImpactNote
-    ? `
-    <tr>
-      <td style="padding:0 0 16px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fff7ed; border:1px solid #fed7aa; border-radius:12px;">
-          <tr>
-            <td style="padding:12px 16px; font-family:Arial, Helvetica, sans-serif; color:#9a3412; font-size:14px; line-height:1.5; font-weight:600;">
-              오늘 영향 큰 이슈 없음
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  `
-    : "";
 
   const highlightBlock =
     highlights.length > 0
@@ -229,7 +222,6 @@ export function renderBriefingHtml(
               </td>
             </tr>
             ${sectionCards}
-            ${noImpactCard}
             <tr>
               <td style="padding:4px 0 0 0; font-family:Arial, Helvetica, sans-serif; color:#6b7280; font-size:12px; line-height:1.5; text-align:center;">
                 이 메일은 자동 발송된 데일리 브리핑입니다.
@@ -266,6 +258,30 @@ export function renderBriefingText(
 
   SECTION_CONFIGS.forEach((section) => {
     const items = normalizeSection(briefing[section.key]);
+    if (section.key === "tomorrow_watchlist") {
+      lines.push(section.title);
+      if (items.length === 0) {
+        lines.push("- 내일 체크 포인트 없음");
+      } else {
+        items.forEach((item) => {
+          lines.push(`- ${item.text}`);
+        });
+      }
+      lines.push("");
+      return;
+    }
+    if (section.key === "social_global") {
+      lines.push(section.title);
+      if (items.length === 0) {
+        lines.push("- 오늘 영향 큰 이슈 없음");
+      } else {
+        items.forEach((item) => {
+          lines.push(`- ${item.text}`);
+        });
+      }
+      lines.push("");
+      return;
+    }
     if (items.length === 0) {
       return;
     }
@@ -275,13 +291,6 @@ export function renderBriefingText(
     });
     lines.push("");
   });
-
-  const globalItems = normalizeSection(briefing.social_global);
-  const tomorrowItems = normalizeSection(briefing.tomorrow_watchlist);
-  if (globalItems.length === 0 && tomorrowItems.length === 0) {
-    lines.push("오늘 영향 큰 이슈 없음");
-    lines.push("");
-  }
 
   return lines.join("\n").trimEnd();
 }
