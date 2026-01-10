@@ -1,4 +1,5 @@
-import type { DailySummary } from "./llm/schema.js";
+import type { DailySummary, SummaryItem } from "./llm/schema.js";
+import type { Article } from "./rss/index.js";
 
 type SectionConfig = {
   key: keyof DailySummary;
@@ -14,17 +15,13 @@ const SECTION_CONFIGS: SectionConfig[] = [
   { key: "tomorrow_watchlist", title: "내일 체크 포인트" },
 ];
 
-function normalizeSection(items: string[] | string | undefined): string[] {
+function normalizeSection(items: SummaryItem[] | undefined): SummaryItem[] {
   if (!items) {
     return [];
   }
-  if (Array.isArray(items)) {
-    return items.map((item) => item.trim()).filter(Boolean);
-  }
   return items
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .map((item) => ({ ...item, text: item.text.trim() }))
+    .filter((item) => item.text.length > 0);
 }
 
 function escapeHtml(value: string): string {
@@ -48,8 +45,8 @@ function formatKstDate(date: Date): string {
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
-function buildHighlights(briefing: DailySummary): string[] {
-  const highlights: string[] = [];
+function buildHighlights(briefing: DailySummary): SummaryItem[] {
+  const highlights: SummaryItem[] = [];
   const economy = normalizeSection(briefing.economy);
   const stocks = normalizeSection(briefing.stock_market);
   const realEstate = normalizeSection(briefing.real_estate_kr);
@@ -72,12 +69,31 @@ function buildHighlights(briefing: DailySummary): string[] {
   return highlights;
 }
 
-function renderSectionCard(title: string, items: string[]): string {
+function buildLinkedText(item: SummaryItem, articles: Article[]): string {
+  const article = articles[item.sourceIndex - 1];
+  const link = article?.link;
+  const text = escapeHtml(item.text);
+
+  if (!link) {
+    return text;
+  }
+
+  return `<a href="${escapeHtml(
+    link
+  )}" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:none;">${text}</a>`;
+}
+
+function renderSectionCard(
+  title: string,
+  items: SummaryItem[],
+  articles: Article[]
+): string {
   const listItems = items
     .map(
       (item) =>
-        `<li style="margin:0 0 8px 0; padding:0; color:#1f2937; font-size:15px; line-height:1.55;">${escapeHtml(
-          item
+        `<li style="margin:0 0 8px 0; padding:0; color:#1f2937; font-size:15px; line-height:1.55;">${buildLinkedText(
+          item,
+          articles
         )}</li>`
     )
     .join("");
@@ -106,7 +122,8 @@ function renderSectionCard(title: string, items: string[]): string {
 
 export function renderBriefingHtml(
   briefing: DailySummary,
-  subject: string
+  subject: string,
+  articles: Article[]
 ): string {
   const dateLabel = formatKstDate(new Date());
   const highlights = buildHighlights(briefing);
@@ -115,7 +132,7 @@ export function renderBriefingHtml(
     if (items.length === 0) {
       return "";
     }
-    return renderSectionCard(section.title, items);
+    return renderSectionCard(section.title, items, articles);
   }).join("");
 
   const globalItems = normalizeSection(briefing.social_global);
@@ -157,7 +174,7 @@ export function renderBriefingHtml(
                                     .map(
                                       (item) =>
                                         `<li style="margin:0 0 6px 0; color:#334155; font-size:14px; line-height:1.5;">${escapeHtml(
-                                          item
+                                          item.text
                                         )}</li>`
                                     )
                                     .join("")}
@@ -242,7 +259,7 @@ export function renderBriefingText(
   if (highlights.length > 0) {
     lines.push("오늘 핵심 3개");
     highlights.forEach((item) => {
-      lines.push(`- ${item}`);
+      lines.push(`- ${item.text}`);
     });
     lines.push("");
   }
@@ -254,7 +271,7 @@ export function renderBriefingText(
     }
     lines.push(section.title);
     items.forEach((item) => {
-      lines.push(`- ${item}`);
+      lines.push(`- ${item.text}`);
     });
     lines.push("");
   });

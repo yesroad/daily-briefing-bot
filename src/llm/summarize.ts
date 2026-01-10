@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { Article } from "../rss/index.js";
 import { buildSummaryInput } from "./buildInput.js";
 import { SUMMARY_JSON_SCHEMA, summarySchema } from "./schema.js";
+import type { DailySummary, SummaryItem } from "./schema.js";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 
@@ -56,5 +57,33 @@ export async function summarizeArticles(articles: Article[]) {
   if (!parsed.success) {
     throw new Error(`LLM summary validation failed: ${parsed.error.message}`);
   }
-  return parsed.data;
+  return sanitizeSummary(parsed.data, articles.length);
+}
+
+function sanitizeItems(items: SummaryItem[], maxIndex: number): SummaryItem[] {
+  return items.filter((item) => {
+    const text = item.text.trim();
+    if (!text) {
+      return false;
+    }
+    if (!Number.isInteger(item.sourceIndex)) {
+      return false;
+    }
+    if (item.sourceIndex < 1 || item.sourceIndex > maxIndex) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function sanitizeSummary(summary: DailySummary, maxIndex: number): DailySummary {
+  return {
+    ...summary,
+    economy: sanitizeItems(summary.economy, maxIndex),
+    stock_market: sanitizeItems(summary.stock_market, maxIndex),
+    real_estate_kr: sanitizeItems(summary.real_estate_kr, maxIndex),
+    social_global: sanitizeItems(summary.social_global, maxIndex),
+    sector_focus: sanitizeItems(summary.sector_focus, maxIndex),
+    tomorrow_watchlist: sanitizeItems(summary.tomorrow_watchlist, maxIndex),
+  };
 }

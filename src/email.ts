@@ -55,7 +55,7 @@ export async function sendSummaryEmail(
   const dateLabel = formatKstDate(new Date());
   const subject = `[데일리 브리핑] ${dateLabel} 시장 요약`;
   const text = renderBriefingText(summary, subject);
-  const html = renderBriefingHtml(summary, subject);
+  const html = renderBriefingHtml(summary, subject, articles);
 
   try {
     const info = await transporter.sendMail({
