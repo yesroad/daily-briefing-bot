@@ -41,9 +41,13 @@ export async function summarizeArticles(articles: Article[]) {
   const response = await client.responses.create({
     model,
     input,
-    response_format: {
-      type: "json_schema",
-      json_schema: SUMMARY_JSON_SCHEMA,
+    text: {
+      format: {
+        type: "json_schema",
+        name: SUMMARY_JSON_SCHEMA.name,
+        schema: SUMMARY_JSON_SCHEMA.schema,
+        strict: SUMMARY_JSON_SCHEMA.strict,
+      },
     },
   });
 
