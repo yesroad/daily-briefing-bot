@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/run.ts"
+    "dev": "tsx src/run.ts",
+    "run": "tsx src/run.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
