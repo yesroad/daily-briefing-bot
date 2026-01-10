@@ -2,13 +2,23 @@ name: Daily Briefing Bot
 
 on:
   schedule:
-    - cron: "0 13 * * *"
+    - cron: "0 13 * * *" # 매일 22:00 KST
   workflow_dispatch:
+
+# 중복 실행 방지 (메일 두 번 가는 것 방지)
+concurrency:
+  group: daily-briefing-bot
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
+      TZ: Asia/Seoul
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
@@ -16,6 +26,7 @@ jobs:
       SMTP_PASS: ${{ secrets.SMTP_PASS }}
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
       SMTP_TO: ${{ secrets.SMTP_TO }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,7 +37,7 @@ jobs:
           node-version: "20"
           cache: yarn
 
-      - name: Enable Corepack
+      - name: Enable Corepack (Yarn 4)
         run: corepack enable
 
       - name: Install dependencies
