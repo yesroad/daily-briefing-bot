@@ -19,7 +19,7 @@
 
 ```bash
 yarn install
-yarn dev
+yarn start
 ```
 
 ## 환경 변수
@@ -42,8 +42,7 @@ LLM 출력은 고정 JSON 스키마를 따릅니다. 배열 항목은 `{ text, s
 
 ## GitHub Actions
 
-워크플로는 `.github/workflows/daily-briefing-bot.yml`에 있으며, 기본 스케줄은 매일 KST 22:00입니다.실행 명령은 `yarn run`이며,
-로컬에서는 `yarn dev`로 동일한 동작을 확인할 수 있습니다.
+워크플로는 `.github/workflows/daily-briefing-bot.yml`에 있으며, 기본 스케줄은 매일 KST 22:00입니다.실행 명령은 `yarn start`입니다.,
 
 ## 개발 규칙
 
