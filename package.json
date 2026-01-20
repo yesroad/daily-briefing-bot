@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/run.ts"
+    "start": "tsx src/run.ts",
+    "weekly:economy": "tsx src/weekly/run-economy.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

@@ -12,6 +12,12 @@ export type Article = {
   category?: string;
 };
 
+export type FetchRssOptions = {
+  categories?: string[];
+  fromDate?: Date;
+  toDate?: Date;
+};
+
 const parser = new Parser();
 
 const TRACKING_PARAMS = [
@@ -134,6 +140,67 @@ export async function fetchRssArticles(): Promise<Article[]> {
   );
 
   const filtered = articles.filter((article) => isMarketRelevant(article));
+
+  return dedupeArticles(filtered);
+}
+
+function isWithinRange(
+  article: Article,
+  fromTimestamp?: number,
+  toTimestampMs?: number
+): boolean {
+  if (!fromTimestamp && !toTimestampMs) {
+    return true;
+  }
+  const articleTimestamp = toTimestamp(article.pubDate);
+  if (!articleTimestamp) {
+    return false;
+  }
+  if (fromTimestamp && articleTimestamp < fromTimestamp) {
+    return false;
+  }
+  if (toTimestampMs && articleTimestamp > toTimestampMs) {
+    return false;
+  }
+  return true;
+}
+
+export async function fetchRssArticlesWithOptions(
+  options: FetchRssOptions = {}
+): Promise<Article[]> {
+  const categories = options.categories;
+  const sources = categories?.length
+    ? RSS_SOURCES.filter((source) => categories.includes(source.category))
+    : RSS_SOURCES;
+  const feeds = await Promise.all(
+    sources.map(async (source) => {
+      const feed = await parser.parseURL(source.url);
+      return {
+        source,
+        items: feed.items ?? [],
+      };
+    })
+  );
+
+  const articles = feeds.flatMap(({ source, items }) =>
+    items
+      .map((item) => ({
+        title: item.title?.trim() ?? "",
+        summary: buildOneLineSummary(item),
+        link: item.link,
+        canonicalUrl: canonicalizeUrl(item.link),
+        pubDate: item.isoDate ?? item.pubDate,
+        source: source.name,
+        category: source.category,
+      }))
+      .filter((item) => item.title.length > 0)
+  );
+
+  const fromTimestamp = options.fromDate?.getTime();
+  const toTimestampMs = options.toDate?.getTime();
+  const filtered = articles
+    .filter((article) => isMarketRelevant(article))
+    .filter((article) => isWithinRange(article, fromTimestamp, toTimestampMs));
 
   return dedupeArticles(filtered);
 }
