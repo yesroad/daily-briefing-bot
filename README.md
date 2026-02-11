@@ -2,16 +2,15 @@
 
 # Daily Briefing Bot 📰
 
-> **AI를 활용한 뉴스 요약 자동화**  
-> Vibe Coding으로 제작한 실험적 프로젝트입니다.
+> **RSS + OpenAI + GitHub Actions 기반 뉴스 요약 자동화**
 
 매일 저녁 10시(22:00 KST)에 RSS 피드에서 뉴스를 수집하고,  
-OpenAI LLM으로 요약해서 이메일로 발송하는 자동화 봇입니다.
+OpenAI로 요약해서 이메일로 발송하는 자동화 봇입니다.
 
 ## 🎯 제작 배경
 
 개인적으로 매일 저녁 주요 뉴스를 요약해서 받아보고 싶어서 만들었습니다.  
-AI와 자동화를 직접 경험해보고자 빠르게(Vibe Coding) 구현한 프로젝트입니다.
+실제로 매일 사용하고 있는 실용적인 자동화 프로젝트입니다.
 
 ## ✨ 주요 기능
 
@@ -52,16 +51,59 @@ SMTP_TO=recipient_email
 
 ## 📊 요약 스키마
 
-LLM 출력은 고정 JSON 스키마를 따릅니다.  
-배열 형식으로 `{ text, sourceIndex }` 형태이며, `sourceIndex`는 원본 기사 번호(1부터 시작)입니다.
+OpenAI Structured Output으로 일관된 형식을 보장합니다.
 
-## ⏰ GitHub Actions
+```typescript
+{
+  summaries: Array<{
+    text: string        // 요약 텍스트
+    sourceIndex: number // 원본 기사 번호 (1부터 시작)
+  }>
+}
+```
 
-워크플로는 `.github/workflows/daily-briefing-bot.yml`에 있으며,  
-기본 스케줄은 매일 KST 22:00입니다. 실행 명령은 `yarn start`입니다.
+## ⏰ GitHub Actions 스케줄링
 
-## 💡 개발 규칙
+워크플로는 `.github/workflows/daily-briefing-bot.yml`에 정의되어 있습니다.
 
-- **Vibe Coding**: 빠른 프로토타이핑 우선, 점진적 개선
-- **실용성**: 실제로 매일 사용하는 것이 목표
-- **실험적**: 새로운 기술(LLM, 자동화)을 시도하는 학습 프로젝트
+```yaml
+schedule:
+  - cron: '0 13 * * *'  # 매일 22:00 KST (UTC+9)
+```
+
+## 💡 핵심 구현
+
+### RSS 파싱
+- 여러 뉴스 소스에서 최신 기사 수집
+- 중복 제거 알고리즘으로 유사 뉴스 필터링
+
+### OpenAI 통합
+- Structured Output으로 파싱 오류 제거
+- JSON 스키마 기반 안정적인 응답
+- Token 사용량 최적화
+
+### 이메일 발송
+- HTML 템플릿으로 가독성 높은 포맷
+- 원본 기사 링크 포함
+- nodemailer를 통한 SMTP 전송
+
+### GitHub Actions
+- 서버리스 환경에서 자동 실행
+- Secrets 관리로 보안 강화
+- 실행 이력 추적 및 디버깅
+
+## 📌 실행 흐름
+
+1. GitHub Actions 스케줄 트리거 (매일 22:00 KST)
+2. RSS 피드에서 최신 뉴스 수집
+3. 중복 제거 및 필터링
+4. OpenAI로 요약 생성
+5. HTML 이메일 포맷팅
+6. SMTP로 이메일 발송
+
+## 🔧 확장 가능성
+
+- 추가 RSS 소스 지원
+- 카테고리별 요약
+- Slack/Discord 알림 지원
+- 웹 UI 대시보드
